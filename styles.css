@@ -1,24 +1,25 @@
 /* The Thinking Experiment - Atwood Machine Styles */
 
 :root {
-    --primary-color: #2c3e50;
-    --secondary-color: #2fa4e7;
-    --accent-color: #e74c3c;
-    --light-bg: #f8f9fa;
-    --dark-text: #2c3e50;
-    --light-text: #6c757d;
-    --border-color: #dee2e6;
-    --success-color: #28a745;
-    --warning-color: #ffc107;
+    /* Light theme - blue/teal palette */
+    --primary-color: #123140;
+    --secondary-color: #0f7e9b;
+    --accent-color: #13a1c4;
+    --light-bg: #e9f4fb;
+    --dark-text: #123140;
+    --light-text: #4b6570;
+    --border-color: #c8dbe3;
+    --success-color: #1a7f4e;
+    --warning-color: #9a5d00;
     --background-color: #ffffff;
 }
 
-/* Dark theme variables */
+/* Dark theme - gold/dark palette */
 body.dark-theme {
     --primary-color: #eef2f9;
     --secondary-color: #d8b767;
     --accent-color: #c8a24a;
-    --light-bg: #11141b;
+    --light-bg: #090b0f;
     --dark-text: #eef2f9;
     --light-text: #c9d1df;
     --border-color: rgba(229, 204, 143, 0.24);
