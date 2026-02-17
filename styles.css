@@ -13,6 +13,20 @@
     --background-color: #ffffff;
 }
 
+/* Dark theme variables */
+body.dark-theme {
+    --primary-color: #eef2f9;
+    --secondary-color: #d8b767;
+    --accent-color: #c8a24a;
+    --light-bg: #11141b;
+    --dark-text: #eef2f9;
+    --light-text: #c9d1df;
+    --border-color: rgba(229, 204, 143, 0.24);
+    --success-color: #d8b767;
+    --warning-color: #e5cc8f;
+    --background-color: #1e2430;
+}
+
 * {
     margin: 0;
     padding: 0;
