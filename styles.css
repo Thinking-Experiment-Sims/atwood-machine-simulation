@@ -52,6 +52,20 @@ body.dark-theme details summary {
     color: var(--dark-text);
 }
 
+body.dark-theme .visualization-toggles {
+    background-color: var(--background-color);
+}
+
+body.dark-theme .checkbox-label {
+    color: var(--dark-text);
+}
+
+body.dark-theme .exploration-content,
+body.dark-theme .theory-content {
+    background: var(--background-color);
+    color: var(--dark-text);
+}
+
 * {
     margin: 0;
     padding: 0;
