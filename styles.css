@@ -28,6 +28,30 @@ body.dark-theme {
     --background-color: #1e2430;
 }
 
+/* Dark theme specific overrides */
+body.dark-theme .info-item {
+    background: var(--background-color);
+}
+
+body.dark-theme #atwoodCanvas {
+    background: linear-gradient(to bottom, #0c0f15 0%, #11141b 100%);
+}
+
+body.dark-theme .control-group input[type="number"],
+body.dark-theme .control-group input[type="text"] {
+    background: var(--background-color);
+    color: var(--dark-text);
+    border-color: var(--border-color);
+}
+
+body.dark-theme details {
+    background: var(--background-color);
+}
+
+body.dark-theme details summary {
+    color: var(--dark-text);
+}
+
 * {
     margin: 0;
     padding: 0;
