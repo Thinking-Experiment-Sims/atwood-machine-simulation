@@ -613,6 +613,70 @@ footer {
     color: var(--primary-color);
 }
 
+/* Dark theme readability fixes for tabbed learning content */
+body[data-theme="dark"] .tab-navigation {
+    border-bottom-color: var(--border-color);
+}
+
+body[data-theme="dark"] .tab-button {
+    background-color: #0f141c;
+    color: var(--light-text);
+}
+
+body[data-theme="dark"] .tab-button:hover {
+    background-color: #18212d;
+    color: var(--dark-text);
+}
+
+body[data-theme="dark"] .tab-button.active {
+    background-color: var(--background-color);
+    color: var(--secondary-color);
+    border-bottom-color: var(--secondary-color);
+}
+
+body[data-theme="dark"] .info-section {
+    background: var(--background-color);
+    color: var(--dark-text);
+}
+
+body[data-theme="dark"] .exploration-section {
+    background-color: #141a24;
+    border-left-color: var(--secondary-color);
+}
+
+body[data-theme="dark"] .exploration-intro,
+body[data-theme="dark"] .info-section p,
+body[data-theme="dark"] .info-section li {
+    color: var(--dark-text);
+}
+
+body[data-theme="dark"] .exploration-item {
+    background-color: #1c2535;
+    border-color: #3a4657;
+}
+
+body[data-theme="dark"] .exploration-item summary {
+    color: var(--dark-text);
+}
+
+body[data-theme="dark"] .exploration-item summary:hover {
+    background-color: #242f42;
+}
+
+body[data-theme="dark"] .exploration-item[open] summary {
+    background-color: #2a3750;
+    color: #f2f5fb;
+}
+
+body[data-theme="dark"] .exploration-content {
+    background: #151d2a;
+    border-top-color: #3a4657;
+}
+
+body[data-theme="dark"] .exploration-content strong {
+    color: var(--gold-300, #e5cc8f);
+}
+
 /* Accessibility */
 .sr-only {
     position: absolute;
