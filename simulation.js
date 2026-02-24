@@ -722,6 +722,29 @@ class AtwoodMachine {
     }
 }
 
+// Theme toggle (same top-right placement pattern as Half Atwood sim)
+var themeToggleButton = document.getElementById('themeToggleButton');
+var currentTheme = localStorage.getItem('atwood_theme') ||
+    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
+function applyTheme(theme) {
+    document.body.setAttribute('data-theme', theme);
+    if (themeToggleButton) {
+        themeToggleButton.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
+        themeToggleButton.textContent = theme === 'dark' ? '☀️ Switch to Light Theme' : '🌙 Switch to Dark Theme';
+    }
+}
+
+applyTheme(currentTheme);
+
+if (themeToggleButton) {
+    themeToggleButton.addEventListener('click', () => {
+        currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        localStorage.setItem('atwood_theme', currentTheme);
+        applyTheme(currentTheme);
+    });
+}
+
 // Initialize simulation
 var canvas = document.getElementById('atwoodCanvas');
 var simulation = new AtwoodMachine(canvas);
