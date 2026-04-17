@@ -1,6 +1,7 @@
 /* The Thinking Experiment - Atwood Machine Styles */
 
 :root {
+
   --bg-950: #e9f4fb;
   --bg-900: #fff4dd;
   --bg-800: #ffffff;
@@ -23,6 +24,7 @@
     --success-color: #1a7f4e;
     --warning-color: #9a5d00;
     --background-color: #ffffff;
+
 }
 
 
@@ -530,17 +532,9 @@ footer {
   background: linear-gradient(160deg, #0d839f, #0b5f77);
   color: #ffffff;
   font-weight: 700;
-
-    flex: 1;
-    padding: 15px 20px;
-    background-color: var(--light-bg);
-    border: none;
-    border-bottom: 3px solid transparent;
-    cursor: pointer;
-    font-size: 1em;
-    font-weight: 600;
-    color: var(--light-text);
-    transition: all 0.3s ease;
+  border: 1px solid #0a5d74;
+  padding: 0.58rem 0.82rem;
+  cursor: pointer;
 }
 
 .tab-button:hover {
@@ -623,9 +617,9 @@ body[data-theme="dark"] .tab-button {
   background: linear-gradient(160deg, #0d839f, #0b5f77);
   color: #ffffff;
   font-weight: 700;
-
-    background-color: #0f141c;
-    color: var(--light-text);
+  border: 1px solid #0a5d74;
+  padding: 0.58rem 0.82rem;
+  cursor: pointer;
 }
 
 body[data-theme="dark"] .tab-button:hover {
@@ -778,10 +772,10 @@ input:invalid + .error-message {
   background: linear-gradient(160deg, #0d839f, #0b5f77);
   color: #ffffff;
   font-weight: 700;
-
-        font-size: 0.9em;
-        padding: 12px 15px;
-    }
+  border: 1px solid #0a5d74;
+  padding: 0.58rem 0.82rem;
+  cursor: pointer;
+}
     
     .simulation-panel {
         padding: 15px;
