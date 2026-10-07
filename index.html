@@ -4,296 +4,221 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Atwood Machine Simulation - The Thinking Experiment</title>
+    <meta name="description" content="Explore force, acceleration, tension, and direction changes in a classic two-mass pulley system.">
     <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}, {left: '$', right: '$', display: false}]});"></script>
     <link rel="stylesheet" href="styles.css">
-    <!-- Defer MathJax loading for faster initial render -->
-    <script>
-        window.MathJax = {
-            startup: {
-                pageReady: () => {
-                    return MathJax.startup.defaultPageReady().then(() => {
-                        console.log('MathJax loaded');
-                    });
-                }
-            }
-        };
-    </script>
-    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
     <div class="bg-grid" aria-hidden="true"></div>
     <!-- Screen reader announcements -->
     <div id="sr-announcements" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
     
-    <div class="container">
+    <div class="shell">
+        <!-- Hero Header -->
         <header class="hero">
             <div class="hero-top">
                 <div>
-                    <a href="https://thinking-experiment-sims.github.io/interactive-physics/" class="brand-badge" title="Return to Physics Simulations Hub">← The Thinking Experiment</a>
-                    <span class="lab-badge">📐 Physics Lab Activity</span>
+                    <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.4rem;">
+                        <a href="https://thinking-experiment-sims.github.io/interactive-physics/" class="brand-badge" title="Return to Physics Simulations Hub">← The Thinking Experiment</a>
+                        <span class="lab-badge">📐 Dynamics Lab Activity</span>
+                    </div>
                     <h1>Atwood Machine Simulation</h1>
-                    <p class="subtitle">Explore force, acceleration, tension, and direction changes in a classic two-mass pulley system.</p>
+                    <p class="subtitle">Explore Newton’s Second Law, net system force, internal rope tension, and sign-dependent acceleration in a classic two-mass pulley system.</p>
                 </div>
             </div>
         </header>
 
-        <div class="main-content">
-            <div class="simulation-panel">
-                <div class="simulation-container">
-                    <div class="canvas-area">
-                        <canvas id="atwoodCanvas" width="700" height="650" role="img" aria-label="Atwood machine simulation showing two masses connected by a rope over a pulley"></canvas>
+        <main class="app-layout" aria-label="Atwood Machine simulation interface">
+            <!-- Left: Apparatus & Visuals -->
+            <section class="panel wide visual-panel">
+                <div class="panel-head">
+                    <h2>Apparatus &amp; Motion View</h2>
+                    <p class="hint">Observation canvas featuring low-friction pulley rotation, dynamic braided cord, and real-time free-body diagrams.</p>
+                </div>
+
+                <div class="canvas-area">
+                    <canvas id="atwoodCanvas" width="700" height="600" role="img" aria-label="Atwood machine simulation showing two masses connected by a rope over a pulley"></canvas>
+                </div>
+
+                <!-- Live Metrics Readouts -->
+                <div class="metrics-grid" aria-label="Live simulation readouts">
+                    <div class="metric-card">
+                        <span class="metric-label">System Acceleration</span>
+                        <span class="metric-value" id="currentAcceleration">0.00 m/s²</span>
                     </div>
-                    
-                    <div class="controls">
-                        <div class="controls-grid">
-                            <div class="control-group">
-                                <label for="mass1">Mass 1 (m₁) - Left</label>
-                                <input type="number" id="mass1" min="0.1" max="20" step="0.1" value="2" aria-describedby="mass1Help" aria-label="Mass 1 in kilograms">
-                                <span class="value-display" id="mass1Display">2.0 kg</span>
-                                <small id="mass1Help" class="sr-only">Enter a value between 0.1 and 20 kg</small>
+                    <div class="metric-card">
+                        <span class="metric-label">Velocity (v)</span>
+                        <span class="metric-value" id="currentVelocity">0.00 m/s</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Rope Tension (F_T)</span>
+                        <span class="metric-value" id="currentTension">0.00 N</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Elapsed Time (t)</span>
+                        <span class="metric-value" id="currentTime">0.00 s</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right: Controls -->
+            <section class="panel narrow controls-panel">
+                <div class="panel-head">
+                    <h2>System Controls</h2>
+                    <p class="hint">Clockwise rotation is positive (\(m_2\) down, \(m_1\) up).</p>
+                </div>
+
+                <div class="controls-grid">
+                    <div class="control-card">
+                        <label for="mass1">
+                            <span class="label-title">Mass 1 (\(m_1\)) · Left <span class="val-badge" id="mass1Display">2.0 kg</span></span>
+                        </label>
+                        <input type="number" id="mass1" min="0.1" max="20" step="0.1" value="2" aria-describedby="mass1Help" aria-label="Mass 1 in kilograms">
+                        <small id="mass1Help" class="sr-only">Enter a value between 0.1 and 20 kg</small>
+                    </div>
+
+                    <div class="control-card">
+                        <label for="mass2">
+                            <span class="label-title">Mass 2 (\(m_2\)) · Right <span class="val-badge" id="mass2Display">3.0 kg</span></span>
+                        </label>
+                        <input type="number" id="mass2" min="0.1" max="20" step="0.1" value="3" aria-describedby="mass2Help" aria-label="Mass 2 in kilograms">
+                        <small id="mass2Help" class="sr-only">Enter a value between 0.1 and 20 kg</small>
+                    </div>
+                </div>
+
+                <div class="control-card range-card">
+                    <label for="initialVelocity">
+                        <span class="label-title">Initial Velocity (\(v_0\)) <span class="val-badge" id="velocityDisplay">0.0 m/s</span></span>
+                    </label>
+                    <input type="range" id="initialVelocity" min="-5" max="5" step="0.1" value="0" aria-describedby="velocityHelp">
+                    <div class="range-hint">
+                        <span>↺ CCW (\(m_1\downarrow\))</span>
+                        <span>Rest (0)</span>
+                        <span>↻ CW (\(m_2\downarrow\))</span>
+                    </div>
+                </div>
+
+                <div class="toggle-group">
+                    <label class="toggle-line">
+                        <input type="checkbox" id="showForceArrows" checked>
+                        <span>Show Force Vectors &amp; FBD Panels</span>
+                    </label>
+                </div>
+
+                <div class="button-group">
+                    <button id="startBtn" class="btn btn-primary" aria-label="Start simulation">▶ Start</button>
+                    <button id="pauseBtn" class="btn btn-secondary" aria-label="Pause simulation">⏸ Pause</button>
+                    <button id="resetBtn" class="btn btn-secondary" aria-label="Reset simulation">↺ Reset</button>
+                </div>
+
+                <div class="preset-box">
+                    <span class="preset-title">Quick Scenarios</span>
+                    <div class="preset-buttons">
+                        <button type="button" class="btn-ghost" onclick="setPreset(3, 3, 0)">Equal Masses</button>
+                        <button type="button" class="btn-ghost" onclick="setPreset(2, 3, -3)">Opposing Velocity</button>
+                        <button type="button" class="btn-ghost" onclick="setPreset(1, 6, 0)">Large Imbalance</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Bottom: Guided Inquiry & Theory Tabs -->
+            <section class="panel full tabs-panel">
+                <nav class="tab-navigation" role="tablist">
+                    <button class="tab-button active" data-tab="exploration" role="tab">🔍 Guided Exploration</button>
+                    <button class="tab-button" data-tab="theory" role="tab">📚 Theoretical Derivation</button>
+                </nav>
+                
+                <div class="tab-content active" id="exploration-tab" role="tabpanel">
+                    <div class="exploration-grid">
+                        <details class="exploration-card" open>
+                            <summary>
+                                <span class="summary-title">1. What happens when the masses are equal (\(m_1 = m_2\))?</span>
+                                <span class="summary-tag">Equilibrium</span>
+                            </summary>
+                            <div class="exploration-body">
+                                <p><strong>Try it:</strong> Set both masses to 3.0 kg with \(v_0 = 0\text{ m/s}\).</p>
+                                <p><strong>Physical Law:</strong> The net external gravitational pulling force is:
+                                \[F_{\text{net}} = g(m_2 - m_1) = 0\text{ N}\]
+                                Since \(F_{\text{net}} = 0\), system acceleration is \(a = 0\text{ m/s}^2\). The system remains in static equilibrium.</p>
+                                <p><strong>Follow-up:</strong> If you give equal masses an initial velocity of \(v_0 = 2\text{ m/s}\), it moves indefinitely at constant velocity—a direct demonstration of <em>Newton's First Law</em>.</p>
                             </div>
+                        </details>
 
-                            <div class="control-group">
-                                <label for="mass2">Mass 2 (m₂) - Right</label>
-                                <input type="number" id="mass2" min="0.1" max="20" step="0.1" value="3" aria-describedby="mass2Help" aria-label="Mass 2 in kilograms">
-                                <span class="value-display" id="mass2Display">3.0 kg</span>
-                                <small id="mass2Help" class="sr-only">Enter a value between 0.1 and 20 kg</small>
+                        <details class="exploration-card">
+                            <summary>
+                                <span class="summary-title">2. How does initial velocity affect system trajectory?</span>
+                                <span class="summary-tag">Kinematics vs Forces</span>
+                            </summary>
+                            <div class="exploration-body">
+                                <p><strong>Try it:</strong> Set \(m_1 = 2.0\text{ kg}\), \(m_2 = 3.0\text{ kg}\), and \(v_0 = -3.0\text{ m/s}\) (counterclockwise).</p>
+                                <p><strong>Observation:</strong> Mass \(m_1\) initially moves DOWN, while acceleration points in the opposite direction (clockwise / positive).</p>
+                                <p><strong>Key Insight:</strong> Acceleration determines the rate and direction of velocity <em>change</em>, not the instantaneous direction of motion. The system decelerates, halts momentarily, and reverses direction.</p>
                             </div>
-                        </div>
+                        </details>
 
-                        <div class="control-group">
-                            <label for="initialVelocity">Initial Velocity (v₀)</label>
-                            <input type="range" id="initialVelocity" min="-5" max="5" step="0.1" value="0" aria-describedby="velocityHelp">
-                            <span class="value-display" id="velocityDisplay">0.0 m/s</span>
-                            <small id="velocityHelp">Positive: Clockwise (m₂↓, m₁↑) | Negative: Counterclockwise (m₁↓, m₂↑)</small>
-                        </div>
-
-                        <div class="control-group visualization-toggles">
-                            <label class="toggle-header">Visualization Options</label>
-                            <div class="checkbox-group">
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="showForceArrows" checked>
-                                    <span>Show Force Arrows (Tension & Gravity)</span>
-                                </label>
+                        <details class="exploration-card">
+                            <summary>
+                                <span class="summary-title">3. What happens when one mass is significantly heavier (\(m_2 \gg m_1\))?</span>
+                                <span class="summary-tag">Free Fall Limit</span>
+                            </summary>
+                            <div class="exploration-body">
+                                <p><strong>Try it:</strong> Set \(m_1 = 0.5\text{ kg}\) and \(m_2 = 10.0\text{ kg}\).</p>
+                                <p><strong>Limiting Analysis:</strong> As \(m_2 \gg m_1\), the acceleration ratio approaches unity:
+                                \[a = g \left(\frac{m_2 - m_1}{m_1 + m_2}\right) \approx g \left(\frac{m_2}{m_2}\right) = g = 9.80\text{ m/s}^2\]
+                                Acceleration nears free fall, but can never exceed \(g\) because \(m_1\) contributes inertia to the total system mass.</p>
                             </div>
-                        </div>
+                        </details>
 
-                        <div class="button-group">
-                            <button id="startBtn" class="btn btn-primary" aria-label="Start simulation">Start</button>
-                            <button id="pauseBtn" class="btn btn-secondary" aria-label="Pause simulation">Pause</button>
-                            <button id="resetBtn" class="btn btn-secondary" aria-label="Reset simulation">Reset</button>
-                        </div>
+                        <details class="exploration-card">
+                            <summary>
+                                <span class="summary-title">4. Why is rope tension between \(m_1 g\) and \(m_2 g\)?</span>
+                                <span class="summary-tag">Internal Force</span>
+                            </summary>
+                            <div class="exploration-body">
+                                <p>For the heavier mass (\(m_2\)) to accelerate downward, gravity must win: \(m_2 g > F_T\).</p>
+                                <p>For the lighter mass (\(m_1\)) to accelerate upward, tension must win: \(F_T > m_1 g\).</p>
+                                <p>Therefore, tension is strictly bounded:
+                                \[m_1 g < F_T < m_2 g\]
+                                Only when \(m_1 = m_2\) does tension equal each weight (\(F_T = mg\)).</p>
+                            </div>
+                        </details>
                     </div>
                 </div>
                 
-                <!-- Info Display Below Canvas -->
-                <div class="info-display">
-                    <div class="info-item">
-                        <span class="label">Acceleration:</span>
-                        <span class="value" id="currentAcceleration">0.00 m/s²</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="label">Velocity:</span>
-                        <span class="value" id="currentVelocity">0.00 m/s</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="label">Tension:</span>
-                        <span class="value" id="currentTension">0.00 N</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="label">Time:</span>
-                        <span class="value" id="currentTime">0.00 s</span>
+                <div class="tab-content" id="theory-tab" role="tabpanel">
+                    <div class="theory-layout">
+                        <div class="theory-card">
+                            <h3>1. The System Approach (Whole Machine)</h3>
+                            <p>Treating both connected masses as a single one-dimensional system unfolds the Atwood machine along the connecting cord. Internal tension forces cancel out according to Newton's Third Law (\(F_{T1} = -F_{T2}\)).</p>
+                            <div class="equation-box">
+                                \[F_{\text{net, ext}} = m_2 g - m_1 g = g(m_2 - m_1)\]
+                            </div>
+                            <p>Applying Newton’s Second Law to the combined mass \((m_1 + m_2)\):</p>
+                            <div class="equation-box highlight">
+                                \[a = \frac{F_{\text{net, ext}}}{m_{\text{total}}} = \frac{g(m_2 - m_1)}{m_1 + m_2}\]
+                            </div>
+                        </div>
+
+                        <div class="theory-card">
+                            <h3>2. Isolating Individual Masses (Internal Tension)</h3>
+                            <p>To determine internal cord tension \(F_T\), we construct free-body equations for each isolated body:</p>
+                            <div class="equation-box">
+                                \[\text{For } m_1 \text{ (accelerating up): } F_T - m_1 g = m_1 a \implies F_T = m_1(g + a)\]
+                                \[\text{For } m_2 \text{ (accelerating down): } m_2 g - F_T = m_2 a \implies F_T = m_2(g - a)\]
+                            </div>
+                            <p>Substituting the system acceleration formula yields the harmonic mean tension equation:</p>
+                            <div class="equation-box highlight">
+                                \[F_T = \frac{2 m_1 m_2 g}{m_1 + m_2}\]
+                            </div>
+                            <p class="hint">Standard classroom convention assumes an ideal massless, frictionless pulley with \(g = 9.80\text{ m/s}^2\).</p>
+                        </div>
                     </div>
                 </div>
-            </div>
-
-            <div class="info-panel">
-                <!-- Tab Navigation -->
-                <div class="tab-navigation">
-                    <button class="tab-button active" data-tab="exploration">Guided Exploration</button>
-                    <button class="tab-button" data-tab="theory">Physics Theory</button>
-                </div>
-                
-                <!-- Tab Content -->
-                <div class="tab-content active" id="exploration-tab">
-                    <section class="info-section exploration-section">
-                        <h2>🔍 Guided Exploration</h2>
-                        <p class="exploration-intro">Try these experiments to deepen your understanding:</p>
-                    
-                    <details class="exploration-item">
-                        <summary>What happens when the masses are equal?</summary>
-                        <div class="exploration-content">
-                            <p><strong>Try it:</strong> Set m₁ = m₂ (e.g., both 3 kg)</p>
-                            <p><strong>Prediction:</strong> Before you run it, what do you expect?</p>
-                            <p><strong>Explanation:</strong> When masses are equal, the net force is zero: 
-                            \(F_{NET} = g(m_2 - m_1) = 0\). This means acceleration is zero! The system will 
-                            maintain whatever velocity it started with (constant velocity motion). If it starts 
-                            from rest (v₀ = 0), it stays at rest.</p>
-                        </div>
-                    </details>
-
-                    <details class="exploration-item">
-                        <summary>How does initial velocity affect the motion?</summary>
-                        <div class="exploration-content">
-                            <p><strong>Try it:</strong> Set m₁ = 2 kg, m₂ = 3 kg, v₀ = -3 m/s (counterclockwise)</p>
-                            <p><strong>Observation:</strong> Notice that m₁ initially moves DOWN (counterclockwise), 
-                            but the acceleration is positive (clockwise). The system slows down, stops, then 
-                            reverses direction!</p>
-                            <p><strong>Key Insight:</strong> Acceleration determines how velocity <em>changes</em>, 
-                            not the direction of motion itself. An object can move one way while accelerating the 
-                            opposite way (it's slowing down).</p>
-                        </div>
-                    </details>
-
-                    <details class="exploration-item">
-                        <summary>What if one mass is much heavier?</summary>
-                        <div class="exploration-content">
-                            <p><strong>Try it:</strong> Set m₁ = 1 kg, m₂ = 10 kg</p>
-                            <p><strong>Prediction:</strong> Will the acceleration be close to g = 9.8 m/s²?</p>
-                            <p><strong>Explanation:</strong> As m₂ >> m₁, the acceleration approaches 
-                            \(a \approx g(m_2)/(m_2) = g\), but never quite reaches it because m₁ still provides 
-                            some resistance. The tension also increases significantly when masses are very different.</p>
-                        </div>
-                    </details>
-
-                    <details class="exploration-item">
-                        <summary>Can the system have constant motion?</summary>
-                        <div class="exploration-content">
-                            <p><strong>Try it:</strong> Set equal masses (m₁ = m₂) with any initial velocity v₀ ≠ 0</p>
-                            <p><strong>Result:</strong> The system moves with constant velocity! This demonstrates 
-                            Newton's First Law: an object in motion stays in motion with constant velocity when 
-                            the net force is zero.</p>
-                            <p><strong>Real-world connection:</strong> This is similar to an object sliding on a 
-                            frictionless surface—it keeps going at constant speed.</p>
-                        </div>
-                    </details>
-                </section>
-                </div>
-                
-                <!-- Theory Tab Content -->
-                <div class="tab-content" id="theory-tab">
-                    <section class="info-section">
-                        <h2>What is an Atwood Machine?</h2>
-                        <p>
-                            An Atwood machine consists of two masses connected by an inextensible string 
-                            that passes over a frictionless pulley. It's a classic physics demonstration 
-                            used to study the laws of motion and acceleration.
-                        </p>
-                    </section>
-
-                    <section class="info-section">
-                        <h2>The Physics: System Approach</h2>
-                        <p>
-                            We can analyze the Atwood machine using the <strong>system method</strong>, 
-                            treating both masses together as a single system. This elegant approach 
-                            avoids dealing with tension forces internally.
-                        </p>
-                        <p>
-                            <strong>Sign Convention:</strong> We use the convention that <em>clockwise rotation is positive</em>. 
-                            This means positive velocity/acceleration corresponds to \(m_2\) moving down and \(m_1\) moving up.
-                        </p>
-                        
-                        <h3>Step 1: Define the System</h3>
-                        <p>
-                            Consider both masses (\(m_1\) and \(m_2\)) as one system. The only <em>external</em> 
-                            forces acting on this system are the gravitational forces on each mass.
-                        </p>
-                        
-                        <h3>Step 2: Find the Net Force (\(F_{\text{NET}}\))</h3>
-                        <p>
-                            If \(m_2 > m_1\), the net external force pulling the system is:
-                        </p>
-                        <div class="equation">
-                            $$F_{\text{NET}} = m_2g - m_1g = g(m_2 - m_1)$$
-                        </div>
-                        <p>
-                            The tension (\(F_T\)) is an <strong>internal force</strong> that cancels out when 
-                            considering the whole system—it pulls equally on both masses in opposite directions.
-                        </p>
-                        
-                        <h3>Step 3: Apply Newton's Second Law</h3>
-                        <p>
-                            The total mass of the system is \((m_1 + m_2)\), so:
-                        </p>
-                        <div class="equation">
-                            $$F_{\text{NET}} = (m_1 + m_2)a$$
-                        </div>
-                        <p>
-                            Combining our equations:
-                        </p>
-                        <div class="equation">
-                            $$g(m_2 - m_1) = (m_1 + m_2)a$$
-                        </div>
-                        <p>
-                            Solving for acceleration:
-                        </p>
-                        <div class="equation">
-                            $$a = \frac{g(m_2 - m_1)}{m_1 + m_2}$$
-                        </div>
-                        
-                        <h3>Finding Tension (\(F_T\))</h3>
-                        <p>
-                            To find the tension, we isolate one mass. For \(m_1\):
-                        </p>
-                        <div class="equation">
-                            $$F_T - m_1g = m_1a$$
-                        </div>
-                        <p>
-                            Substituting our expression for \(a\) and simplifying:
-                        </p>
-                        <div class="equation">
-                            $$F_T = \frac{2m_1m_2g}{m_1 + m_2}$$
-                        </div>
-                        <p>
-                            <small><em>Where \(g = 9.8 \, \text{m/s}^2\)</em></small>
-                        </p>
-                    </section>
-
-                    <section class="info-section">
-                        <h2>Key Insights</h2>
-                        <ul>
-                            <li>
-                                <strong>Direction of Acceleration vs. Motion:</strong> The acceleration tells us 
-                                how velocity is changing, not the direction of motion. An object can move upward 
-                                while accelerating downward (decelerating)!
-                            </li>
-                            <li>
-                                <strong>Equal Masses:</strong> When m₁ = m₂, the acceleration is zero. The system 
-                                moves with constant velocity (including zero velocity if starting from rest).
-                            </li>
-                            <li>
-                                <strong>Initial Velocity:</strong> Try setting different initial velocities to see 
-                                how the system behaves. Even if the calculated acceleration points one way, the 
-                                masses might initially move in the opposite direction!
-                            </li>
-                            <li>
-                                <strong>Frictionless Assumption:</strong> Real pulleys have friction and mass, 
-                                which affect the motion. This simulation uses the idealized case.
-                            </li>
-                        </ul>
-                    </section>
-
-                    <section class="info-section">
-                        <h2>Try This!</h2>
-                    <ol>
-                        <li>Set m₁ = 2 kg and m₂ = 3 kg with zero initial velocity. Observe m₂ accelerating downward.</li>
-                        <li>Now set initial velocity to -5 m/s. Notice m₁ starts moving down even though acceleration points the other way!</li>
-                        <li>Set both masses equal (e.g., 2 kg each) with any initial velocity. The system maintains constant velocity.</li>
-                        <li>Experiment with extreme mass differences to see rapid acceleration.</li>
-                    </ol>
-                </section>
-
-                <section class="info-section footnote">
-                    <p>
-                        <em>This simulation uses g = 9.8 m/s² and assumes an ideal frictionless pulley 
-                        with negligible mass.</em>
-                    </p>
-                </section>
-                </div>
-            </div>
-        </div>
-
-        
+            </section>
+        </main>
         
         <footer>
             <p>© 2026 Vladimir Lopez · The Thinking Experiment · Interactive Physics Simulations</p>

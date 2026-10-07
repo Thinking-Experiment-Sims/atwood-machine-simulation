@@ -1,33 +1,19 @@
-// Atwood Machine Simulation
+// Atwood Machine Simulation - The Thinking Experiment
 class AtwoodMachine {
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         
-        // Scale canvas for high DPI displays (sharper rendering)
-        const dpr = window.devicePixelRatio || 1;
-        const rect = canvas.getBoundingClientRect();
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        this.ctx.scale(dpr, dpr);
+        // Logical canvas dimensions
+        this.baseWidth = 700;
+        this.baseHeight = 600;
+        this.setupHiDPI();
         
-        // Store CSS dimensions for calculations
-        this.canvasWidth = rect.width;
-        this.canvasHeight = rect.height;
-        
-        // Use CSS size for layout
-        canvas.style.width = rect.width + 'px';
-        canvas.style.height = rect.height + 'px';
-        
-        // Enable anti-aliasing for smoother lines
-        this.ctx.imageSmoothingEnabled = true;
-        this.ctx.imageSmoothingQuality = 'high';
-        
-        this.g = 9.8; // gravitational acceleration (m/s²)
+        this.g = 9.80; // gravitational acceleration (m/s²)
         
         // Physical properties
-        this.mass1 = 2; // kg (left side)
-        this.mass2 = 3; // kg (right side)
+        this.mass1 = 2.0; // kg (left side)
+        this.mass2 = 3.0; // kg (right side)
         this.initialVelocity = 0; // m/s (positive = clockwise = mass2 down, mass1 up)
         this.velocity = 0; // m/s (positive = clockwise rotation)
         this.acceleration = 0; // m/s² (positive = clockwise acceleration)
@@ -35,9 +21,9 @@ class AtwoodMachine {
         
         // Position and animation
         this.position2 = 0; // meters from initial position for mass2 (positive = down)
-        this.pixelsPerMeter = 25; // Slower motion for clarity
+        this.pixelsPerMeter = 24; // Slower motion for inquiry clarity
         this.time = 0;
-        this.dt = 0.008; // ~120 FPS, but slower per frame
+        this.dt = 0.008; // smooth simulation step
         
         // Pulley rotation angle for animation
         this.pulleyAngle = 0; // radians
@@ -49,12 +35,12 @@ class AtwoodMachine {
         // Visualization options
         this.showForceArrows = true;
         
-        // Canvas dimensions
-        this.centerX = this.canvasWidth / 2;
-        this.pulleyY = 100;
-        this.pulleyRadius = 38;
-        this.ropeLength = 240;
-        this.maxRopeLength = 175; // Maximum rope extension (blocks stop well before touching pulley - needs 38+25=63px clearance)
+        // Apparatus geometry
+        this.centerX = this.baseWidth / 2;
+        this.pulleyY = 110;
+        this.pulleyRadius = 42;
+        this.ropeLength = 230;
+        this.maxRopeTravel = 160; // Max displacement in pixels before soft limit
         
         // Initial positions
         this.mass1InitialY = this.pulleyY + this.ropeLength;
@@ -62,20 +48,40 @@ class AtwoodMachine {
         
         this.calculate();
         this.draw();
+        this.updateDisplay();
+
+        window.addEventListener('resize', () => {
+            this.setupHiDPI();
+            this.draw();
+        });
+    }
+
+    setupHiDPI() {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = this.canvas.getBoundingClientRect();
+        const displayWidth = rect.width > 0 ? rect.width : this.baseWidth;
+        const displayHeight = rect.height > 0 ? rect.height : this.baseHeight;
         
-        // Initialize force diagrams visibility
-        const forceDiagrams = document.getElementById('forceDiagrams');
-        if (forceDiagrams && this.showForceArrows) {
-            forceDiagrams.classList.remove('hidden');
-        }
+        this.canvas.width = displayWidth * dpr;
+        this.canvas.height = displayHeight * dpr;
+        this.scaleRatio = displayWidth / this.baseWidth;
+        
+        this.ctx.setTransform(dpr * this.scaleRatio, 0, 0, dpr * this.scaleRatio, 0, 0);
+        this.ctx.imageSmoothingEnabled = true;
+        this.ctx.imageSmoothingQuality = 'high';
     }
     
     calculate() {
-        // Calculate acceleration: a = g(m2-m1)/(m1+m2)
-        this.acceleration = this.g * (this.mass2 - this.mass1) / (this.mass1 + this.mass2);
-        
-        // Calculate tension: T = 2*m1*m2*g/(m1+m2)
-        this.tension = (2 * this.mass1 * this.mass2 * this.g) / (this.mass1 + this.mass2);
+        const totalMass = this.mass1 + this.mass2;
+        if (totalMass > 0) {
+            // Clockwise: a = g * (m2 - m1) / (m1 + m2)
+            this.acceleration = this.g * (this.mass2 - this.mass1) / totalMass;
+            // Tension: FT = 2 * m1 * m2 * g / (m1 + m2)
+            this.tension = (2 * this.mass1 * this.mass2 * this.g) / totalMass;
+        } else {
+            this.acceleration = 0;
+            this.tension = 0;
+        }
     }
     
     reset() {
@@ -106,21 +112,24 @@ class AtwoodMachine {
     animate() {
         if (!this.isRunning) return;
         
-        // Update physics (positive velocity = clockwise = mass2 down)
+        // Update physics
         this.velocity += this.acceleration * this.dt;
         this.position2 += this.velocity * this.dt;
         this.time += this.dt;
         
-        // Update pulley rotation angle based on rope movement
-        // Rotation angle = arc length / radius = position / radius
+        // Rotation angle = displacement / radius
         this.pulleyAngle = (this.position2 * this.pixelsPerMeter) / this.pulleyRadius;
         
-        // Check boundaries (prevent masses from going off screen or touching pulley)
-        const maxPosition = this.maxRopeLength / this.pixelsPerMeter; // Bottom boundary
-        const minPosition = -this.maxRopeLength / this.pixelsPerMeter; // Top boundary (prevent touching pulley)
-        
-        if (this.position2 > maxPosition || this.position2 < minPosition) {
+        // Boundaries (prevent blocks from hitting pulley or bottom edge)
+        const maxTravelMeters = this.maxRopeTravel / this.pixelsPerMeter;
+        if (Math.abs(this.position2) >= maxTravelMeters) {
+            this.position2 = Math.sign(this.position2) * maxTravelMeters;
+            this.velocity = 0;
             this.pause();
+            if (startBtn && pauseBtn) {
+                startBtn.disabled = false;
+                pauseBtn.disabled = true;
+            }
         }
         
         this.draw();
@@ -130,727 +139,577 @@ class AtwoodMachine {
     }
     
     draw() {
-        // Clear canvas
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        const width = this.baseWidth;
+        const height = this.baseHeight;
+        const ctx = this.ctx;
         
-        // Tangent points on the pulley (left and right edges)
+        // 1. Crisp White Background
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        
+        // Subtle blueprint engineering grid
+        ctx.strokeStyle = 'rgba(15, 126, 155, 0.04)';
+        ctx.lineWidth = 1;
+        for (let x = 20; x < width; x += 25) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, height);
+            ctx.stroke();
+        }
+        for (let y = 20; y < height; y += 25) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(width, y);
+            ctx.stroke();
+        }
+        
+        // Tangent points on the pulley
         const leftTangentX = this.centerX - this.pulleyRadius;
         const rightTangentX = this.centerX + this.pulleyRadius;
         
-        // Masses are directly below their respective tangent points
+        // Block positions
         const mass1X = leftTangentX;
         const mass2X = rightTangentX;
+        const displacementPx = this.position2 * this.pixelsPerMeter;
+        const mass1Y = this.mass1InitialY - displacementPx;
+        const mass2Y = this.mass2InitialY + displacementPx;
         
-        // Calculate current positions (positive position2 = mass2 down, mass1 up)
-        const mass1Y = this.mass1InitialY - this.position2 * this.pixelsPerMeter;
-        const mass2Y = this.mass2InitialY + this.position2 * this.pixelsPerMeter;
+        // 2. Ceiling Mounting Bracket & Fixture
+        this.drawCeilingMount(ctx);
         
-        // Draw ceiling
-        this.ctx.strokeStyle = '#495057';
-        this.ctx.lineWidth = 6;
-        this.ctx.beginPath();
-        this.ctx.moveTo(0, 50);
-        this.ctx.lineTo(this.canvas.width, 50);
-        this.ctx.stroke();
+        // 3. Braided Cord
+        this.drawRope(ctx, mass1X, mass1Y, mass2X, mass2Y, leftTangentX, rightTangentX);
         
-        // Draw pulley support
-        this.ctx.strokeStyle = '#495057';
-        this.ctx.lineWidth = 4;
-        this.ctx.beginPath();
-        this.ctx.moveTo(this.centerX, 50);
-        this.ctx.lineTo(this.centerX, this.pulleyY - this.pulleyRadius);
-        this.ctx.stroke();
+        // 4. Low-Friction Pulley Assembly
+        this.drawPulley(ctx);
         
-        // Draw pulley with rotation
-        this.ctx.save(); // Save context state
+        // 5. Mass Blocks
+        this.drawMassBlock(ctx, mass1X, mass1Y, this.mass1, '#0f7e9b', 'm₁');
+        this.drawMassBlock(ctx, mass2X, mass2Y, this.mass2, '#d67b19', 'm₂');
         
-        // Draw pulley body
-        this.ctx.beginPath();
-        this.ctx.arc(this.centerX, this.pulleyY, this.pulleyRadius, 0, Math.PI * 2);
-        this.ctx.fillStyle = '#adb5bd';
-        this.ctx.fill();
-        this.ctx.strokeStyle = '#495057';
-        this.ctx.lineWidth = 3;
-        this.ctx.stroke();
+        // 6. Kinematic Vectors beside blocks
+        // Velocity (Teal/Emerald #0f7e9b)
+        // Acceleration (Amber #d67b19 - NO GOLD!)
+        this.drawMotionVectors(ctx, mass1X, mass1Y, -this.velocity, -this.acceleration, true);
+        this.drawMotionVectors(ctx, mass2X, mass2Y, this.velocity, this.acceleration, false);
         
-        // Draw rotation indicators (spokes that rotate)
-        this.ctx.translate(this.centerX, this.pulleyY);
-        this.ctx.rotate(this.pulleyAngle);
+        // 7. Free Body Diagram Panels (if enabled)
+        if (this.showForceArrows) {
+            this.drawFbdPanels(ctx);
+        }
+    }
+    
+    drawCeilingMount(ctx) {
+        // Ceiling Beam
+        ctx.fillStyle = '#eaf4f7';
+        ctx.strokeStyle = '#c8dbe3';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.rect(0, 0, this.baseWidth, 42);
+        ctx.fill();
+        ctx.stroke();
         
-        // Draw 6 spokes
+        // Metallic mounting plate
+        ctx.fillStyle = '#d4e5ed';
+        ctx.strokeStyle = '#0f7e9b';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(this.centerX - 45, 34, 90, 14, 4);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Mounting bolts
+        ctx.fillStyle = '#0a5d74';
+        ctx.beginPath();
+        ctx.arc(this.centerX - 30, 41, 3, 0, Math.PI * 2);
+        ctx.arc(this.centerX + 30, 41, 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Support rod down to pulley axle
+        ctx.strokeStyle = '#4b6570';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(this.centerX, 48);
+        ctx.lineTo(this.centerX, this.pulleyY);
+        ctx.stroke();
+    }
+    
+    drawRope(ctx, m1X, m1Y, m2X, m2Y, tan1X, tan2X) {
+        ctx.save();
+        ctx.strokeStyle = '#4b6570';
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        
+        // Left strand (to top eyelet of mass 1)
+        ctx.beginPath();
+        ctx.moveTo(m1X, m1Y - 28);
+        ctx.lineTo(tan1X, this.pulleyY);
+        ctx.stroke();
+        
+        // Right strand (to top eyelet of mass 2)
+        ctx.beginPath();
+        ctx.moveTo(m2X, m2Y - 28);
+        ctx.lineTo(tan2X, this.pulleyY);
+        ctx.stroke();
+        
+        // Arc over pulley groove
+        ctx.beginPath();
+        ctx.arc(this.centerX, this.pulleyY, this.pulleyRadius, Math.PI, 0, false);
+        ctx.stroke();
+        ctx.restore();
+    }
+    
+    drawPulley(ctx) {
+        ctx.save();
+        
+        // Outer wheel rim
+        ctx.beginPath();
+        ctx.arc(this.centerX, this.pulleyY, this.pulleyRadius + 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#e2edf2';
+        ctx.fill();
+        ctx.strokeStyle = '#b0c9d4';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Grooved pulley body
+        const grad = ctx.createRadialGradient(
+            this.centerX - 10, this.pulleyY - 10, 5,
+            this.centerX, this.pulleyY, this.pulleyRadius
+        );
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.7, '#dceaf0');
+        grad.addColorStop(1, '#c0d7e2');
+        
+        ctx.beginPath();
+        ctx.arc(this.centerX, this.pulleyY, this.pulleyRadius, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.strokeStyle = '#0f7e9b';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Rotating spokes
+        ctx.save();
+        ctx.translate(this.centerX, this.pulleyY);
+        ctx.rotate(this.pulleyAngle);
+        
+        ctx.strokeStyle = '#718894';
+        ctx.lineWidth = 2;
         for (let i = 0; i < 6; i++) {
             const angle = (i * Math.PI) / 3;
-            this.ctx.save();
-            this.ctx.rotate(angle);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo((this.pulleyRadius - 7) * Math.cos(angle), (this.pulleyRadius - 7) * Math.sin(angle));
+            ctx.stroke();
             
-            // Spoke line
-            this.ctx.strokeStyle = '#6c757d';
-            this.ctx.lineWidth = 2;
-            this.ctx.beginPath();
-            this.ctx.moveTo(0, 0);
-            this.ctx.lineTo(this.pulleyRadius - 8, 0);
-            this.ctx.stroke();
-            
-            // Dot at end of spoke
-            this.ctx.beginPath();
-            this.ctx.arc(this.pulleyRadius - 8, 0, 3, 0, Math.PI * 2);
-            this.ctx.fillStyle = '#495057';
-            this.ctx.fill();
-            
-            this.ctx.restore();
+            // Precision dot
+            ctx.beginPath();
+            ctx.arc((this.pulleyRadius - 7) * Math.cos(angle), (this.pulleyRadius - 7) * Math.sin(angle), 2.5, 0, Math.PI * 2);
+            ctx.fillStyle = '#0f7e9b';
+            ctx.fill();
         }
         
-        // Draw direction arrow on pulley (shows current rotation direction)
+        // Rotation direction arc on pulley
         if (Math.abs(this.velocity) > 0.05) {
-            const arrowRadius = this.pulleyRadius * 0.6;
-            const arrowAngle = Math.PI * 0.4;
-            
-            this.ctx.strokeStyle = this.velocity > 0 ? '#28a745' : '#e74c3c';
-            this.ctx.lineWidth = 3;
-            this.ctx.beginPath();
-            
-            // Draw arc showing direction
+            const arcRadius = this.pulleyRadius * 0.55;
+            const span = Math.PI * 0.45;
+            ctx.strokeStyle = '#d67b19';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
             if (this.velocity > 0) {
-                // Clockwise arrow (top right to bottom right)
-                this.ctx.arc(0, 0, arrowRadius, -arrowAngle, arrowAngle, false);
+                ctx.arc(0, 0, arcRadius, -span, span, false);
             } else {
-                // Counterclockwise arrow (top left to bottom left)
-                this.ctx.arc(0, 0, arrowRadius, Math.PI - arrowAngle, Math.PI + arrowAngle, false);
+                ctx.arc(0, 0, arcRadius, Math.PI - span, Math.PI + span, false);
             }
-            this.ctx.stroke();
-            
-            // Draw arrowhead
-            const endAngle = this.velocity > 0 ? arrowAngle : Math.PI + arrowAngle;
-            const headX = arrowRadius * Math.cos(endAngle);
-            const headY = arrowRadius * Math.sin(endAngle);
-            const headAngle = endAngle + (this.velocity > 0 ? Math.PI / 2 : -Math.PI / 2);
-            
-            this.ctx.fillStyle = this.velocity > 0 ? '#28a745' : '#e74c3c';
-            this.ctx.beginPath();
-            this.ctx.moveTo(headX, headY);
-            this.ctx.lineTo(
-                headX + 8 * Math.cos(headAngle + 0.3),
-                headY + 8 * Math.sin(headAngle + 0.3)
-            );
-            this.ctx.lineTo(
-                headX + 8 * Math.cos(headAngle - 0.3),
-                headY + 8 * Math.sin(headAngle - 0.3)
-            );
-            this.ctx.closePath();
-            this.ctx.fill();
+            ctx.stroke();
         }
         
-        this.ctx.restore(); // Restore context state
+        ctx.restore(); // Restore spoke rotation
         
-        // Draw pulley center (on top of spokes)
-        this.ctx.beginPath();
-        this.ctx.arc(this.centerX, this.pulleyY, 8, 0, Math.PI * 2);
-        this.ctx.fillStyle = '#495057';
-        this.ctx.fill();
-        
-        // Draw ropes (straight down from tangent points)
-        this.ctx.strokeStyle = '#6c757d';
-        this.ctx.lineWidth = 3;
-        
-        // Left rope - straight vertical line from mass to tangent point
-        this.ctx.beginPath();
-        this.ctx.moveTo(mass1X, mass1Y - 25);
-        this.ctx.lineTo(leftTangentX, this.pulleyY);
-        this.ctx.stroke();
-        
-        // Right rope - straight vertical line from mass to tangent point
-        this.ctx.beginPath();
-        this.ctx.moveTo(mass2X, mass2Y - 25);
-        this.ctx.lineTo(rightTangentX, this.pulleyY);
-        this.ctx.stroke();
-        
-        // Draw rope arc over pulley (semicircle over the top)
-        this.ctx.beginPath();
-        this.ctx.arc(this.centerX, this.pulleyY, this.pulleyRadius, Math.PI, 0, false);
-        this.ctx.stroke();
-        
-        // Draw masses
-        this.drawMass(mass1X, mass1Y, this.mass1, '#2fa4e7', 'm₁');
-        this.drawMass(mass2X, mass2Y, this.mass2, '#e74c3c', 'm₂');
-        
-        // Draw velocity and acceleration arrows BESIDE each mass
-        // Draw velocity and acceleration arrows BESIDE each mass
-        // Left mass (m1) - velocity is positive when m1 goes UP (opposite of position2)
-        this.drawVelocityArrow(mass1X - 50, mass1Y, -this.velocity, '#28a745', 'v');
-        this.drawAccelerationArrow(mass1X - 90, mass1Y, -this.acceleration, '#ffc107', 'a');
-        
-        // Right mass (m2) - velocity is positive when m2 goes DOWN (same as position2)
-        this.drawVelocityArrow(mass2X + 50, mass2Y, this.velocity, '#28a745', 'v');
-        this.drawAccelerationArrow(mass2X + 90, mass2Y, this.acceleration, '#ffc107', 'a');
-        
-        // Draw force arrows if enabled
-        if (this.showForceArrows) {
-            this.drawForceArrowsInBoxes();
-        }
-        
-        // Draw labels
-        this.drawLabels();
-    }
-    
-    drawForceArrowsInBoxes() {
-        // Draw force diagrams in separate canvases
-        const canvas1 = document.getElementById('forceCanvas1');
-        const canvas2 = document.getElementById('forceCanvas2');
-        
-        if (canvas1 && canvas2) {
-            this.drawForceDiagram(canvas1, this.mass1, this.tension, 'm₁');
-            this.drawForceDiagram(canvas2, this.mass2, this.tension, 'm₂');
-        }
-    }
-    
-    drawForceDiagram(canvas, mass, tension, label) {
-        const ctx = canvas.getContext('2d');
-        const width = canvas.width;
-        const height = canvas.height;
-        
-        // Clear canvas
-        ctx.clearRect(0, 0, width, height);
-        
-        const centerX = width / 2;
-        const centerY = height / 2;
-        const boxSize = 30;
-        const arrowScale = 2.5;
-        const maxArrowLength = 60;
-        
-        // Draw mass box
-        ctx.fillStyle = label === 'm₁' ? '#2fa4e7' : '#e74c3c';
-        ctx.fillRect(centerX - boxSize/2, centerY - boxSize/2, boxSize, boxSize);
-        ctx.strokeStyle = '#495057';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(centerX - boxSize/2, centerY - boxSize/2, boxSize, boxSize);
-        
-        // Draw label on box
+        // Axle Bearing hub (stationary on top)
+        ctx.beginPath();
+        ctx.arc(this.centerX, this.pulleyY, 9, 0, Math.PI * 2);
+        ctx.fillStyle = '#123140';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(this.centerX, this.pulleyY, 4, 0, Math.PI * 2);
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 14px Arial';
+        ctx.fill();
+        
+        ctx.restore();
+    }
+    
+    drawMassBlock(ctx, x, y, mass, color, label) {
+        const width = 56;
+        const height = 56;
+        const radius = 8;
+        
+        // Eyelet hook on top
+        ctx.strokeStyle = '#4b6570';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(x, y - height / 2 - 4, 4, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Drop shadow
+        ctx.save();
+        ctx.shadowColor = 'rgba(15, 126, 155, 0.14)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 4;
+        
+        // Block body
+        ctx.beginPath();
+        ctx.roundRect(x - width / 2, y - height / 2, width, height, radius);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.restore();
+        
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        
+        // Bevel highlight
+        ctx.beginPath();
+        ctx.roundRect(x - width / 2 + 3, y - height / 2 + 3, width - 6, height / 3, [radius - 2, radius - 2, 0, 0]);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+        ctx.fill();
+        
+        // Labels
+        ctx.fillStyle = '#ffffff';
+        ctx.font = "700 15px 'Inter', sans-serif";
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(label, centerX, centerY);
+        ctx.fillText(label, x, y - 9);
         
-        // Calculate arrow lengths
-        const gravity = mass * this.g;
-        const gravityLength = Math.min(gravity * arrowScale, maxArrowLength);
-        const tensionLength = Math.min(tension * arrowScale, maxArrowLength);
-        
-        // Draw gravity arrow (downward)
-        this.drawForceArrowInDiagram(ctx, centerX, centerY + boxSize/2, 0, gravityLength, '#e74c3c', `Fg = ${gravity.toFixed(1)} N`, 'down');
-        
-        // Draw tension arrow (upward)
-        this.drawForceArrowInDiagram(ctx, centerX, centerY - boxSize/2, 0, -tensionLength, '#3498db', `T = ${tension.toFixed(1)} N`, 'up');
+        ctx.font = "600 11px 'Inter', sans-serif";
+        ctx.fillText(`${mass.toFixed(1)} kg`, x, y + 11);
     }
     
-    drawForceArrowInDiagram(ctx, x, y, dx, dy, color, label, direction) {
-        if (Math.abs(dy) < 2) return;
+    drawMotionVectors(ctx, x, y, velocity, acceleration, isLeft) {
+        const velOffset = isLeft ? -45 : 45;
+        const accOffset = isLeft ? -75 : 75;
+        const scale = 16;
+        
+        // Velocity Vector (Solid Teal/Green)
+        if (Math.abs(velocity) > 0.05) {
+            const vLen = velocity * scale;
+            this.drawVectorArrow(ctx, x + velOffset, y, 0, vLen, '#0f7e9b', 'v', false);
+        }
+        
+        // Acceleration Vector (Dashed Amber - STRICTLY NO GOLD)
+        if (Math.abs(acceleration) > 0.05) {
+            const aLen = acceleration * scale;
+            this.drawVectorArrow(ctx, x + accOffset, y, 0, aLen, '#d67b19', 'a', true);
+        }
+    }
+    
+    drawVectorArrow(ctx, startX, startY, dx, dy, color, label, isDashed) {
+        if (Math.abs(dy) < 4) return;
+        
+        const endX = startX + dx;
+        const endY = startY + dy;
+        const dir = dy > 0 ? 1 : -1;
         
         ctx.save();
         ctx.strokeStyle = color;
         ctx.fillStyle = color;
         ctx.lineWidth = 2.5;
+        if (isDashed) {
+            ctx.setLineDash([5, 4]);
+        }
         
-        // Draw arrow line
+        // Arrow shaft
         ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x + dx, y + dy);
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
         ctx.stroke();
+        ctx.setLineDash([]);
         
-        // Draw arrowhead
-        const angle = Math.atan2(dy, dx);
-        const headLength = 8;
+        // Arrow head
+        const headSize = 9;
         ctx.beginPath();
-        ctx.moveTo(x + dx, y + dy);
-        ctx.lineTo(
-            x + dx - headLength * Math.cos(angle - Math.PI / 6),
-            y + dy - headLength * Math.sin(angle - Math.PI / 6)
-        );
-        ctx.lineTo(
-            x + dx - headLength * Math.cos(angle + Math.PI / 6),
-            y + dy - headLength * Math.sin(angle + Math.PI / 6)
-        );
+        ctx.moveTo(endX, endY);
+        ctx.lineTo(endX - 5, endY - dir * headSize);
+        ctx.lineTo(endX + 5, endY - dir * headSize);
         ctx.closePath();
         ctx.fill();
         
-        // Draw label beside arrow
-        ctx.font = 'bold 10px Arial';
-        ctx.textAlign = 'left';
-        ctx.fillStyle = color;
-        ctx.fillText(label, x + 5, y + dy / 2 + (direction === 'down' ? 5 : -5));
+        // Badge label
+        ctx.font = "700 12px 'Inter', sans-serif";
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const labelY = startY + dy / 2;
+        ctx.fillText(label, startX + (startX > this.centerX ? 14 : -14), labelY);
         
         ctx.restore();
     }
     
-    drawVelocityArrow(x, y, velocity, color, label) {
-        if (Math.abs(velocity) < 0.05) return;
-        const scale = 20; // pixels per m/s
-        const arrowLength = velocity * scale;
-        const startY = y;
-        const endY = y + arrowLength;
-        const arrowX = x;
+    drawFbdPanels(ctx) {
+        const boxW = 125;
+        const boxH = 150;
+        const pad = 16;
         
-        // Double arrow shaft (vertical lines)
-        this.ctx.strokeStyle = color;
-        this.ctx.lineWidth = 4;
-        this.ctx.beginPath();
-        this.ctx.moveTo(arrowX - 6, startY);
-        this.ctx.lineTo(arrowX - 6, endY);
-        this.ctx.moveTo(arrowX + 6, startY);
-        this.ctx.lineTo(arrowX + 6, endY);
-        this.ctx.stroke();
+        // Left FBD (m1)
+        this.renderFbdCard(ctx, pad, 60, boxW, boxH, this.mass1, 'm₁', '#0f7e9b');
         
-        // Arrow heads
-        const headSize = 12;
-        const direction = arrowLength > 0 ? 1 : -1;
-        this.ctx.fillStyle = color;
-        
-        // Left arrow head
-        this.ctx.beginPath();
-        this.ctx.moveTo(arrowX - 6, endY);
-        this.ctx.lineTo(arrowX - 6 - headSize/2, endY - direction * headSize);
-        this.ctx.lineTo(arrowX - 6 + headSize/2, endY - direction * headSize);
-        this.ctx.closePath();
-        this.ctx.fill();
-        
-        // Right arrow head
-        this.ctx.beginPath();
-        this.ctx.moveTo(arrowX + 6, endY);
-        this.ctx.lineTo(arrowX + 6 - headSize/2, endY - direction * headSize);
-        this.ctx.lineTo(arrowX + 6 + headSize/2, endY - direction * headSize);
-        this.ctx.closePath();
-        this.ctx.fill();
-        
-        // Just the label, no numbers
-        this.ctx.fillStyle = color;
-        this.ctx.font = 'bold 16px Arial';
-        this.ctx.textAlign = 'center';
-        const labelY = startY + (endY - startY)/2;
-        this.ctx.fillText(label, arrowX + 25, labelY);
+        // Right FBD (m2)
+        this.renderFbdCard(ctx, this.baseWidth - boxW - pad, 60, boxW, boxH, this.mass2, 'm₂', '#d67b19');
     }
     
-    drawAccelerationArrow(x, y, acceleration, color, label) {
-        if (Math.abs(acceleration) < 0.01) return;
-        const scale = 20; // pixels per m/s²
-        const arrowLength = acceleration * scale;
-        const startY = y;
-        const endY = y + arrowLength;
-        const arrowX = x;
-        
-        // Double dashed arrow shaft (vertical lines)
-        this.ctx.strokeStyle = color;
-        this.ctx.lineWidth = 3;
-        this.ctx.setLineDash([7, 5]);
-        this.ctx.beginPath();
-        this.ctx.moveTo(arrowX - 5, startY);
-        this.ctx.lineTo(arrowX - 5, endY);
-        this.ctx.moveTo(arrowX + 5, startY);
-        this.ctx.lineTo(arrowX + 5, endY);
-        this.ctx.stroke();
-        this.ctx.setLineDash([]);
-        
-        // Arrow heads
-        const headSize = 10;
-        const direction = arrowLength > 0 ? 1 : -1;
-        this.ctx.fillStyle = color;
-        
-        // Left arrow head
-        this.ctx.beginPath();
-        this.ctx.moveTo(arrowX - 5, endY);
-        this.ctx.lineTo(arrowX - 5 - headSize/2, endY - direction * headSize);
-        this.ctx.lineTo(arrowX - 5 + headSize/2, endY - direction * headSize);
-        this.ctx.closePath();
-        this.ctx.fill();
-        
-        // Right arrow head
-        this.ctx.beginPath();
-        this.ctx.moveTo(arrowX + 5, endY);
-        this.ctx.lineTo(arrowX + 5 - headSize/2, endY - direction * headSize);
-        this.ctx.lineTo(arrowX + 5 + headSize/2, endY - direction * headSize);
-        this.ctx.closePath();
-        this.ctx.fill();
-        
-        // Just the label, no numbers
-        this.ctx.fillStyle = color;
-        this.ctx.font = 'bold 16px Arial';
-        this.ctx.textAlign = 'center';
-        const labelY = startY + (endY - startY)/2;
-        this.ctx.fillText(label, arrowX + 25, labelY);
-    }
-    
-    drawMass(x, y, mass, color, label) {
-        const width = 50;
-        const height = 50;
-        
-        // Draw mass box
-        this.ctx.fillStyle = color;
-        this.ctx.fillRect(x - width/2, y - height/2, width, height);
-        this.ctx.strokeStyle = '#2c3e50';
-        this.ctx.lineWidth = 2;
-        this.ctx.strokeRect(x - width/2, y - height/2, width, height);
-        
-        // Draw mass label
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.font = 'bold 16px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(label, x, y - 8);
-        this.ctx.font = '12px Arial';
-                this.ctx.fillText(mass.toFixed(1) + ' kg', x, y + 8);
-    }
-    
-    drawForceArrowsInBoxes() {
-        // Draw force diagrams directly on the canvas in the upper corners
-        const boxWidth = 110;
-        const boxHeight = 140;
-        const padding = 15;
-        
-        // Left box position (Mass 1)
-        const leftBoxX = padding;
-        const leftBoxY = 150;
-        this.drawForceBoxOnCanvas(leftBoxX, leftBoxY, boxWidth, boxHeight, this.mass1, 'm₁');
-        
-        // Right box position (Mass 2)
-        const rightBoxX = this.canvasWidth - boxWidth - padding;
-        const rightBoxY = 150;
-        this.drawForceBoxOnCanvas(rightBoxX, rightBoxY, boxWidth, boxHeight, this.mass2, 'm₂');
-    }
-    
-    drawForceBoxOnCanvas(boxX, boxY, boxWidth, boxHeight, mass, label) {
-        const ctx = this.ctx;
-        const centerX = boxX + boxWidth / 2;
-        const centerY = boxY + boxHeight / 2;
-        
-        // Draw box background
+    renderFbdCard(ctx, x, y, w, h, mass, label, color) {
+        // Card background
+        ctx.save();
         ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-        ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
-        
-        // Draw box border
-        ctx.strokeStyle = '#2fa4e7';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
-        
-        // Draw title
-        ctx.fillStyle = '#2c3e50';
-        ctx.font = 'bold 11px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(`${label} Forces`, centerX, boxY + 12);
-        
-        // Calculate forces
-        const gravity = mass * this.g;
-        const arrowScale = 2.5;
-        const gravityLength = Math.min(gravity * arrowScale, 40);
-        const tensionLength = Math.min(this.tension * arrowScale, 40);
-        
-        // Draw mass box (center of mass)
-        const massBoxSize = 20;
-        ctx.fillStyle = label === 'm₁' ? '#2fa4e7' : '#e74c3c';
-        ctx.fillRect(centerX - massBoxSize/2, centerY - massBoxSize/2, massBoxSize, massBoxSize);
-        ctx.strokeStyle = '#2c3e50';
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, 10);
+        ctx.fill();
+        ctx.strokeStyle = '#c8dbe3';
         ctx.lineWidth = 1.5;
-        ctx.strokeRect(centerX - massBoxSize/2, centerY - massBoxSize/2, massBoxSize, massBoxSize);
+        ctx.stroke();
         
-        // Draw mass label
+        // Title
+        ctx.fillStyle = '#123140';
+        ctx.font = "700 11px 'Inter', sans-serif";
+        ctx.textAlign = 'center';
+        ctx.fillText(`Free-Body: ${label}`, x + w / 2, y + 16);
+        
+        const centerX = x + w / 2;
+        const centerY = y + h / 2 + 4;
+        
+        // Center-of-mass block
+        const bSize = 22;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.roundRect(centerX - bSize / 2, centerY - bSize / 2, bSize, bSize, 4);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 10px Arial';
-        ctx.fillText(label, centerX, centerY + 3);
+        ctx.font = "700 10px 'Inter', sans-serif";
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, centerX, centerY);
         
-        // Draw gravity arrow (downward - red)
-        ctx.strokeStyle = '#e74c3c';
-        ctx.fillStyle = '#e74c3c';
-        ctx.lineWidth = 2.5;
+        // Calculate force lengths
+        const gravity = mass * this.g;
+        const arrowScale = 1.6;
+        const maxLen = 44;
+        const gravLen = Math.min(gravity * arrowScale, maxLen);
+        const tensLen = Math.min(this.tension * arrowScale, maxLen);
+        
+        // Tension vector (Upward - Teal)
+        this.drawFbdArrow(ctx, centerX, centerY - bSize / 2, 0, -tensLen, '#0f7e9b', `F_T = ${this.tension.toFixed(1)} N`, true);
+        
+        // Gravity vector (Downward - Amber/Coral)
+        this.drawFbdArrow(ctx, centerX, centerY + bSize / 2, 0, gravLen, '#c25e00', `F_g = ${gravity.toFixed(1)} N`, false);
+        
+        ctx.restore();
+    }
+    
+    drawFbdArrow(ctx, startX, startY, dx, dy, color, labelText, isUp) {
+        if (Math.abs(dy) < 3) return;
+        
+        const endY = startY + dy;
+        const dir = isUp ? -1 : 1;
+        
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 2.2;
         
         ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.lineTo(centerX, centerY + gravityLength);
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(startX, endY);
         ctx.stroke();
         
-        // Arrow head
+        // Head
+        const hSize = 7;
         ctx.beginPath();
-        ctx.moveTo(centerX, centerY + gravityLength);
-        ctx.lineTo(centerX - 5, centerY + gravityLength - 8);
-        ctx.lineTo(centerX + 5, centerY + gravityLength - 8);
+        ctx.moveTo(startX, endY);
+        ctx.lineTo(startX - 4, endY - dir * hSize);
+        ctx.lineTo(startX + 4, endY - dir * hSize);
         ctx.closePath();
         ctx.fill();
         
-        // Label for gravity
-        ctx.fillStyle = '#2c3e50';
-        ctx.font = 'bold 9px Arial';
-        ctx.textAlign = 'left';
-        ctx.fillText(`${label}g`, centerX + 8, centerY + gravityLength / 2 - 3);
-        ctx.font = '9px Arial';
-        ctx.fillText(`${gravity.toFixed(1)}N`, centerX + 8, centerY + gravityLength / 2 + 8);
+        // Text
+        ctx.font = "600 9.5px 'Inter', sans-serif";
+        ctx.textAlign = 'center';
+        ctx.textBaseline = isUp ? 'bottom' : 'top';
+        ctx.fillText(labelText, startX, endY + (isUp ? -3 : 3));
         
-        // Draw tension arrow (upward - blue)
-        ctx.strokeStyle = '#3498db';
-        ctx.fillStyle = '#3498db';
-        ctx.lineWidth = 2.5;
-        
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.lineTo(centerX, centerY - tensionLength);
-        ctx.stroke();
-        
-        // Arrow head
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY - tensionLength);
-        ctx.lineTo(centerX - 5, centerY - tensionLength + 8);
-        ctx.lineTo(centerX + 5, centerY - tensionLength + 8);
-        ctx.closePath();
-        ctx.fill();
-        
-        // Label for tension
-        ctx.fillStyle = '#2c3e50';
-        ctx.font = 'bold 9px Arial';
-        ctx.textAlign = 'left';
-        ctx.fillText('T', centerX + 8, centerY - tensionLength / 2 - 3);
-        ctx.font = '9px Arial';
-        ctx.fillText(`${this.tension.toFixed(1)}N`, centerX + 8, centerY - tensionLength / 2 + 8);
-    }
-    
-    drawForceArrows(mass1X, mass1Y, mass2X, mass2Y) {
-        const arrowScale = 5; // pixels per Newton
-        const maxArrowLength = 80;
-        
-        // Calculate force magnitudes
-        const gravity1 = this.mass1 * this.g;
-        const gravity2 = this.mass2 * this.g;
-        
-        // Mass 1 forces
-        // Gravity (downward)
-        const gravity1Length = Math.min(gravity1 * arrowScale, maxArrowLength);
-        this.drawForce(mass1X + 20, mass1Y, 0, gravity1Length, '#e74c3c', `m₁g\n${gravity1.toFixed(1)}N`);
-        
-        // Tension (upward)
-        const tensionLength = Math.min(this.tension * arrowScale, maxArrowLength);
-        this.drawForce(mass1X + 40, mass1Y, 0, -tensionLength, '#3498db', `T\n${this.tension.toFixed(1)}N`);
-        
-        // Mass 2 forces
-        // Gravity (downward)
-        const gravity2Length = Math.min(gravity2 * arrowScale, maxArrowLength);
-        this.drawForce(mass2X - 20, mass2Y, 0, gravity2Length, '#e74c3c', `m₂g\n${gravity2.toFixed(1)}N`);
-        
-        // Tension (upward)
-        this.drawForce(mass2X - 40, mass2Y, 0, -tensionLength, '#3498db', `T\n${this.tension.toFixed(1)}N`);
-    }
-    
-    drawForce(x, y, dx, dy, color, label) {
-        if (Math.abs(dy) < 2) return;
-        
-        this.ctx.save();
-        this.ctx.strokeStyle = color;
-        this.ctx.fillStyle = color;
-        this.ctx.lineWidth = 2.5;
-        
-        // Draw arrow line
-        this.ctx.beginPath();
-        this.ctx.moveTo(x, y);
-        this.ctx.lineTo(x + dx, y + dy);
-        this.ctx.stroke();
-        
-        // Draw arrowhead
-        const angle = Math.atan2(dy, dx);
-        const headLength = 8;
-        this.ctx.beginPath();
-        this.ctx.moveTo(x + dx, y + dy);
-        this.ctx.lineTo(
-            x + dx - headLength * Math.cos(angle - Math.PI / 6),
-            y + dy - headLength * Math.sin(angle - Math.PI / 6)
-        );
-        this.ctx.lineTo(
-            x + dx - headLength * Math.cos(angle + Math.PI / 6),
-            y + dy - headLength * Math.sin(angle + Math.PI / 6)
-        );
-        this.ctx.closePath();
-        this.ctx.fill();
-        
-        // Draw label
-        this.ctx.font = 'bold 10px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-        this.ctx.fillStyle = color;
-        const lines = label.split('\n');
-        lines.forEach((line, i) => {
-            this.ctx.fillText(line, x + dx + (dx < 0 ? -15 : 15), y + dy / 2 + i * 12);
-        });
-        
-        this.ctx.restore();
-    }
-
-    drawLabels() {
-        // Sign convention is now shown in the initial velocity help text
-        // No need for the box with green line that won't go away
+        ctx.restore();
     }
     
     updateDisplay() {
-        document.getElementById('currentAcceleration').textContent = this.acceleration.toFixed(2) + ' m/s²';
-        document.getElementById('currentVelocity').textContent = this.velocity.toFixed(2) + ' m/s';
-        document.getElementById('currentTension').textContent = this.tension.toFixed(2) + ' N';
-        document.getElementById('currentTime').textContent = this.time.toFixed(2) + ' s';
+        const accelEl = document.getElementById('currentAcceleration');
+        const velEl = document.getElementById('currentVelocity');
+        const tensEl = document.getElementById('currentTension');
+        const timeEl = document.getElementById('currentTime');
+        
+        if (accelEl) accelEl.textContent = `${this.acceleration >= 0 ? '+' : ''}${this.acceleration.toFixed(2)} m/s²`;
+        if (velEl) velEl.textContent = `${this.velocity >= 0 ? '+' : ''}${this.velocity.toFixed(2)} m/s`;
+        if (tensEl) tensEl.textContent = `${this.tension.toFixed(2)} N`;
+        if (timeEl) timeEl.textContent = `${this.time.toFixed(2)} s`;
     }
     
     setMass1(mass) {
-        this.mass1 = parseFloat(mass);
-        if (this.mass1 < 0.1) this.mass1 = 0.1;
-        if (this.mass1 > 10) this.mass1 = 10;
+        this.mass1 = Math.max(0.1, Math.min(20, parseFloat(mass) || 0.1));
         this.calculate();
         this.draw();
         this.updateDisplay();
     }
     
     setMass2(mass) {
-        this.mass2 = parseFloat(mass);
-        if (this.mass2 < 0.1) this.mass2 = 0.1;
-        if (this.mass2 > 10) this.mass2 = 10;
+        this.mass2 = Math.max(0.1, Math.min(20, parseFloat(mass) || 0.1));
         this.calculate();
         this.draw();
         this.updateDisplay();
     }
     
     setInitialVelocity(velocity) {
-        this.initialVelocity = parseFloat(velocity);
-        if (this.initialVelocity < -5) this.initialVelocity = -5;
-        if (this.initialVelocity > 5) this.initialVelocity = 5;
+        this.initialVelocity = Math.max(-5, Math.min(5, parseFloat(velocity) || 0));
         this.velocity = this.initialVelocity;
         this.draw();
         this.updateDisplay();
     }
     
     setShowForceArrows(show) {
-        this.showForceArrows = show;
+        this.showForceArrows = !!show;
         this.draw();
     }
 }
 
-// Initialize simulation
+// Global initialization
 var canvas = document.getElementById('atwoodCanvas');
 var simulation = new AtwoodMachine(canvas);
 
-// Control elements
+// Controls
 var mass1Input = document.getElementById('mass1');
 var mass2Input = document.getElementById('mass2');
 var velocityInput = document.getElementById('initialVelocity');
 var startBtn = document.getElementById('startBtn');
 var pauseBtn = document.getElementById('pauseBtn');
 var resetBtn = document.getElementById('resetBtn');
+var showForceArrowsToggle = document.getElementById('showForceArrows');
 
-// Display elements
 var mass1Display = document.getElementById('mass1Display');
 var mass2Display = document.getElementById('mass2Display');
 var velocityDisplay = document.getElementById('velocityDisplay');
 
-// Toggle elements
-var showForceArrowsToggle = document.getElementById('showForceArrows');
-
-// Input validation
 function validateMassInput(input, display) {
     let value = parseFloat(input.value);
-    if (isNaN(value) || value < 0.1) {
-        value = 0.1;
-        input.value = value;
-    } else if (value > 20) {
-        value = 20;
-        input.value = value;
-    }
+    if (isNaN(value) || value < 0.1) value = 0.1;
+    if (value > 20) value = 20;
+    input.value = value;
     return value;
 }
 
-// Event listeners
-mass1Input.addEventListener('input', (e) => {
-    const value = validateMassInput(e.target, mass1Display);
-    simulation.setMass1(value);
-    mass1Display.textContent = value.toFixed(1) + ' kg';
-    announceToScreenReader(`Mass 1 set to ${value.toFixed(1)} kilograms`);
-});
+if (mass1Input) {
+    mass1Input.addEventListener('input', (e) => {
+        const val = validateMassInput(e.target, mass1Display);
+        simulation.setMass1(val);
+        if (mass1Display) mass1Display.textContent = `${val.toFixed(1)} kg`;
+    });
+}
 
-mass2Input.addEventListener('input', (e) => {
-    const value = validateMassInput(e.target, mass2Display);
-    simulation.setMass2(value);
-    mass2Display.textContent = value.toFixed(1) + ' kg';
-    announceToScreenReader(`Mass 2 set to ${value.toFixed(1)} kilograms`);
-});
+if (mass2Input) {
+    mass2Input.addEventListener('input', (e) => {
+        const val = validateMassInput(e.target, mass2Display);
+        simulation.setMass2(val);
+        if (mass2Display) mass2Display.textContent = `${val.toFixed(1)} kg`;
+    });
+}
 
-velocityInput.addEventListener('input', (e) => {
-    simulation.setInitialVelocity(e.target.value);
-    velocityDisplay.textContent = parseFloat(e.target.value).toFixed(1) + ' m/s';
-});
+if (velocityInput) {
+    velocityInput.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value) || 0;
+        simulation.setInitialVelocity(val);
+        if (velocityDisplay) velocityDisplay.textContent = `${val.toFixed(1)} m/s`;
+    });
+}
 
-startBtn.addEventListener('click', () => {
-    simulation.start();
-    startBtn.disabled = true;
-    pauseBtn.disabled = false;
-    announceToScreenReader('Simulation started');
-});
+if (startBtn) {
+    startBtn.addEventListener('click', () => {
+        simulation.start();
+        startBtn.disabled = true;
+        if (pauseBtn) pauseBtn.disabled = false;
+    });
+}
 
-pauseBtn.addEventListener('click', () => {
-    simulation.pause();
-    startBtn.disabled = false;
-    pauseBtn.disabled = true;
-    announceToScreenReader('Simulation paused');
-});
+if (pauseBtn) {
+    pauseBtn.addEventListener('click', () => {
+        simulation.pause();
+        if (startBtn) startBtn.disabled = false;
+        pauseBtn.disabled = true;
+    });
+}
 
-resetBtn.addEventListener('click', () => {
-    simulation.pause();
+if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+        simulation.pause();
+        simulation.reset();
+        if (startBtn) startBtn.disabled = false;
+        if (pauseBtn) pauseBtn.disabled = true;
+    });
+}
+
+if (showForceArrowsToggle) {
+    showForceArrowsToggle.addEventListener('change', (e) => {
+        simulation.setShowForceArrows(e.target.checked);
+    });
+}
+
+// Preset Helper
+window.setPreset = function(m1, m2, v0) {
+    if (mass1Input) {
+        mass1Input.value = m1;
+        simulation.setMass1(m1);
+        if (mass1Display) mass1Display.textContent = `${m1.toFixed(1)} kg`;
+    }
+    if (mass2Input) {
+        mass2Input.value = m2;
+        simulation.setMass2(m2);
+        if (mass2Display) mass2Display.textContent = `${m2.toFixed(1)} kg`;
+    }
+    if (velocityInput) {
+        velocityInput.value = v0;
+        simulation.setInitialVelocity(v0);
+        if (velocityDisplay) velocityDisplay.textContent = `${v0.toFixed(1)} m/s`;
+    }
     simulation.reset();
-    startBtn.disabled = false;
-    pauseBtn.disabled = true;
-    announceToScreenReader('Simulation reset');
-});
+    if (startBtn) startBtn.disabled = false;
+    if (pauseBtn) pauseBtn.disabled = true;
+};
 
-// Visualization toggles
-showForceArrowsToggle.addEventListener('change', (e) => {
-    simulation.setShowForceArrows(e.target.checked);
-    announceToScreenReader(e.target.checked ? 'Force arrows shown' : 'Force arrows hidden');
-});
-
-// Keyboard shortcuts
+// Keyboard Shortcuts
 document.addEventListener('keydown', (e) => {
-    // Space bar: Start/Pause
     if (e.code === 'Space' && !e.target.matches('input')) {
         e.preventDefault();
         if (simulation.isRunning) {
-            pauseBtn.click();
+            if (pauseBtn) pauseBtn.click();
         } else {
-            startBtn.click();
+            if (startBtn) startBtn.click();
         }
-    }
-    // R key: Reset
-    else if (e.code === 'KeyR' && !e.target.matches('input')) {
+    } else if (e.code === 'KeyR' && !e.target.matches('input')) {
         e.preventDefault();
-        resetBtn.click();
+        if (resetBtn) resetBtn.click();
     }
 });
 
-// Screen reader announcements
-function announceToScreenReader(message) {
-    const announcement = document.getElementById('sr-announcements');
-    if (announcement) {
-        announcement.textContent = message;
-    }
-}
-
-// Initialize button states
-pauseBtn.disabled = true;
-
-// Initialize displays
-mass1Display.textContent = simulation.mass1.toFixed(1) + ' kg';
-mass2Display.textContent = simulation.mass2.toFixed(1) + ' kg';
-velocityDisplay.textContent = simulation.initialVelocity.toFixed(1) + ' m/s';
-
-// Tab switching functionality
+// Tab switching
 const tabButtons = document.querySelectorAll('.tab-button');
 const tabContents = document.querySelectorAll('.tab-content');
 
 tabButtons.forEach(button => {
     button.addEventListener('click', () => {
         const tabName = button.getAttribute('data-tab');
-        
-        // Remove active class from all buttons and contents
         tabButtons.forEach(btn => btn.classList.remove('active'));
         tabContents.forEach(content => content.classList.remove('active'));
-        
-        // Add active class to clicked button and corresponding content
         button.classList.add('active');
-        document.getElementById(`${tabName}-tab`).classList.add('active');
+        const targetContent = document.getElementById(`${tabName}-tab`);
+        if (targetContent) targetContent.classList.add('active');
     });
 });
