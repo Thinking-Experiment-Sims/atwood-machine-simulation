@@ -358,13 +358,13 @@ class AtwoodMachine {
         } else {
             // Counter-clockwise: sweeps over top from right to left, ending pointing downwards on the left side
             startAngle = -Math.PI * 0.1; // -18°
-            endAngle = Math.PI * 0.9;     // +162°
+            endAngle = -Math.PI * 1.1;   // -198° (equivalent to +162°, contiguous decreasing angle)
             arcEndAngle = endAngle + deltaAngle * 0.5;
             
             tipX = arcRadius * Math.cos(endAngle);
             tipY = arcRadius * Math.sin(endAngle);
             
-            // Unit tangent vector pointing counter-clockwise
+            // Unit tangent vector pointing counter-clockwise (direction of decreasing angle)
             tx = Math.sin(endAngle);
             ty = -Math.cos(endAngle);
         }
@@ -521,21 +521,23 @@ class AtwoodMachine {
     }
     
     drawFbdPanels(ctx) {
-        const boxW = 125;
-        const boxH = 150;
+        const boxW = 138;
+        const boxH = 182;
         const pad = 16;
+        const cardY = 48;
         
         // Left FBD (m1)
-        this.renderFbdCard(ctx, pad, 60, boxW, boxH, this.mass1, 'm₁', '#0f7e9b');
+        this.renderFbdCard(ctx, pad, cardY, boxW, boxH, this.mass1, 'm₁', '#0f7e9b');
         
         // Right FBD (m2)
-        this.renderFbdCard(ctx, this.baseWidth - boxW - pad, 60, boxW, boxH, this.mass2, 'm₂', '#d67b19');
+        this.renderFbdCard(ctx, this.baseWidth - boxW - pad, cardY, boxW, boxH, this.mass2, 'm₂', '#d67b19');
     }
     
     renderFbdCard(ctx, x, y, w, h, mass, label, color) {
-        // Card background
         ctx.save();
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        
+        // Card background
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
         ctx.beginPath();
         ctx.roundRect(x, y, w, h, 10);
         ctx.fill();
@@ -543,14 +545,32 @@ class AtwoodMachine {
         ctx.lineWidth = 1.5;
         ctx.stroke();
         
-        // Title
+        // Dedicated header banner
+        const headerH = 28;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, headerH, [10, 10, 0, 0]);
+        ctx.fillStyle = '#f0f6f9';
+        ctx.fill();
+        ctx.restore();
+        
+        ctx.beginPath();
+        ctx.moveTo(x, y + headerH);
+        ctx.lineTo(x + w, y + headerH);
+        ctx.strokeStyle = '#c8dbe3';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        // Header Title
         ctx.fillStyle = '#123140';
-        ctx.font = "700 11px 'Inter', sans-serif";
+        ctx.font = "700 11.5px 'Inter', sans-serif";
         ctx.textAlign = 'center';
-        ctx.fillText(`Free-Body: ${label}`, x + w / 2, y + 16);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`Free-Body: ${label}`, x + w / 2, y + headerH / 2);
         
         const centerX = x + w / 2;
-        const centerY = y + h / 2 + 4;
+        const diagramTop = y + headerH;
+        const centerY = diagramTop + (h - headerH) / 2;
         
         // Center-of-mass block
         const bSize = 22;
@@ -568,10 +588,10 @@ class AtwoodMachine {
         ctx.textBaseline = 'middle';
         ctx.fillText(label, centerX, centerY);
         
-        // Calculate force lengths
+        // Calculate force lengths (scaled to guarantee generous breathing room without overlap)
         const gravity = mass * this.g;
-        const arrowScale = 1.6;
-        const maxLen = 44;
+        const arrowScale = 1.2;
+        const maxLen = 36;
         const gravLen = Math.min(gravity * arrowScale, maxLen);
         const tensLen = Math.min(this.tension * arrowScale, maxLen);
         
@@ -600,7 +620,7 @@ class AtwoodMachine {
         ctx.lineTo(startX, endY);
         ctx.stroke();
         
-        // Head
+        // Arrow head
         const hSize = 7;
         ctx.beginPath();
         ctx.moveTo(startX, endY);
@@ -609,11 +629,11 @@ class AtwoodMachine {
         ctx.closePath();
         ctx.fill();
         
-        // Text
-        ctx.font = "600 9.5px 'Inter', sans-serif";
+        // Badge label positioned with generous breathing room
+        ctx.font = "700 10px 'Inter', sans-serif";
         ctx.textAlign = 'center';
         ctx.textBaseline = isUp ? 'bottom' : 'top';
-        ctx.fillText(labelText, startX, endY + (isUp ? -3 : 3));
+        ctx.fillText(labelText, startX, endY + (isUp ? -5 : 5));
         
         ctx.restore();
     }
