@@ -309,23 +309,12 @@ class AtwoodMachine {
             ctx.fillStyle = '#0f7e9b';
             ctx.fill();
         }
-        
-        // Rotation direction arc on pulley
-        if (Math.abs(this.velocity) > 0.05) {
-            const arcRadius = this.pulleyRadius * 0.55;
-            const span = Math.PI * 0.45;
-            ctx.strokeStyle = '#d67b19';
-            ctx.lineWidth = 2.5;
-            ctx.beginPath();
-            if (this.velocity > 0) {
-                ctx.arc(0, 0, arcRadius, -span, span, false);
-            } else {
-                ctx.arc(0, 0, arcRadius, Math.PI - span, Math.PI + span, false);
-            }
-            ctx.stroke();
-        }
-        
         ctx.restore(); // Restore spoke rotation
+        
+        // Rotation direction indicator arrow on pulley face (stationary overlay)
+        if (Math.abs(this.velocity) > 0.05) {
+            this.drawRotationArrow(ctx, this.velocity > 0);
+        }
         
         // Axle Bearing hub (stationary on top)
         ctx.beginPath();
@@ -335,6 +324,92 @@ class AtwoodMachine {
         ctx.beginPath();
         ctx.arc(this.centerX, this.pulleyY, 4, 0, Math.PI * 2);
         ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        
+        ctx.restore();
+    }
+    
+    drawRotationArrow(ctx, isClockwise) {
+        ctx.save();
+        ctx.translate(this.centerX, this.pulleyY);
+        
+        const arcRadius = 24;
+        const headLen = 9;
+        const headWidth = 5;
+        const deltaAngle = headLen / arcRadius;
+        
+        const strokeColor = '#d67b19';
+        const haloColor = '#ffffff';
+        
+        let startAngle, endAngle, tx, ty, tipX, tipY, arcEndAngle;
+        
+        if (isClockwise) {
+            // Clockwise: sweeps over top from left to right, ending pointing downwards on the right side
+            startAngle = -Math.PI * 0.9; // -162°
+            endAngle = Math.PI * 0.1;     // +18°
+            arcEndAngle = endAngle - deltaAngle * 0.5;
+            
+            tipX = arcRadius * Math.cos(endAngle);
+            tipY = arcRadius * Math.sin(endAngle);
+            
+            // Unit tangent vector pointing clockwise
+            tx = -Math.sin(endAngle);
+            ty = Math.cos(endAngle);
+        } else {
+            // Counter-clockwise: sweeps over top from right to left, ending pointing downwards on the left side
+            startAngle = -Math.PI * 0.1; // -18°
+            endAngle = Math.PI * 0.9;     // +162°
+            arcEndAngle = endAngle + deltaAngle * 0.5;
+            
+            tipX = arcRadius * Math.cos(endAngle);
+            tipY = arcRadius * Math.sin(endAngle);
+            
+            // Unit tangent vector pointing counter-clockwise
+            tx = Math.sin(endAngle);
+            ty = -Math.cos(endAngle);
+        }
+        
+        // Unit normal vector (perpendicular to tangent)
+        const nx = -ty;
+        const ny = tx;
+        
+        const p1X = tipX - headLen * tx + headWidth * nx;
+        const p1Y = tipY - headLen * ty + headWidth * ny;
+        const p2X = tipX - headLen * tx - headWidth * nx;
+        const p2Y = tipY - headLen * ty - headWidth * ny;
+        
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        // 1. Subtle white halo so arrow cleanly stands out above spokes
+        ctx.strokeStyle = haloColor;
+        ctx.lineWidth = 4.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, arcRadius, startAngle, arcEndAngle, !isClockwise);
+        ctx.stroke();
+        
+        ctx.fillStyle = haloColor;
+        ctx.beginPath();
+        ctx.moveTo(tipX + tx * 1.5, tipY + ty * 1.5);
+        ctx.lineTo(p1X - tx * 0.5 + nx * 0.8, p1Y - ty * 0.5 + ny * 0.8);
+        ctx.lineTo(p2X - tx * 0.5 - nx * 0.8, p2Y - ty * 0.5 - ny * 0.8);
+        ctx.closePath();
+        ctx.fill();
+        
+        // 2. Foreground Amber arrow (#d67b19 - strictly Thinking Experiment accent)
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, arcRadius, startAngle, arcEndAngle, !isClockwise);
+        ctx.stroke();
+        
+        // Crisp filled arrowhead
+        ctx.fillStyle = strokeColor;
+        ctx.beginPath();
+        ctx.moveTo(tipX, tipY);
+        ctx.lineTo(p1X, p1Y);
+        ctx.lineTo(p2X, p2Y);
+        ctx.closePath();
         ctx.fill();
         
         ctx.restore();
